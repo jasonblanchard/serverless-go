@@ -1,0 +1,65 @@
+service: myservice
+frameworkVersion: '2'
+provider:
+  name: aws
+  runtime: go1.x
+  lambdaHashingVersion: 20201221
+  httpApi:
+    authorizers:
+      cognitoJwtAuthorizer:
+        type: jwt
+        identitySource: $request.header.Authorization
+        issuerUrl: https://cognito-idp.us-east-1.amazonaws.com/us-east-1_dC6nR72ty
+        audience:
+          - "4sdg1ggs8b3vm1r1rfkp04oum7"
+      customAuthorizer:
+        type: request
+        functionName: authorizer
+        resultTtlInSeconds: 0
+        payloadVersion: '1.0'
+package:
+  exclude:
+    - ./**
+  include:
+    - ./bin/**
+custom:
+  secrets: ${ssm:/aws/reference/secretsmanager/serverless-go~true}
+functions:
+  hello:
+    handler: bin/hello
+    events:
+      - httpApi:
+          path: /hello
+          method: get
+          authorizer:
+            name: cognitoJwtAuthorizer
+  world:
+    handler: bin/world
+    events:
+      - httpApi:
+          path: /world
+          method: get
+          authorizer:
+              name: customAuthorizer
+  login:
+    handler: bin/login
+    events:
+      - httpApi:
+          path: /login
+          method: get
+    environment:
+      OIDC_CLIENT_ID: ${self:custom.secrets.oidcClientID}
+      OIDC_CLIENT_SECRET: ${self:custom.secrets.oidcClientSecret}
+      OIDC_ISSUER: ${self:custom.secrets.oidcIssuer}
+  callback:
+    handler: bin/callback
+    events:
+      - httpApi:
+          path: /auth/cognito/callback
+          method: get
+    environment:
+      OIDC_CLIENT_ID: ${self:custom.secrets.oidcClientID}
+      OIDC_CLIENT_SECRET: ${self:custom.secrets.oidcClientSecret}
+      OIDC_ISSUER: ${self:custom.secrets.oidcIssuer}
+  authorizer:
+    handler: bin/authorizer
